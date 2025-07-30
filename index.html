@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Design My Glasses - Frame Customization</title>
+
+  <!-- Face API -->
+  <script defer src="https://cdn.jsdelivr.net/npm/face-api.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f9f9f9;
+    }
+    header {
+      background: #0077cc;
+      color: white;
+      padding: 1rem;
+      text-align: center;
+      font-size: 1.5rem;
+    }
+    main {
+      max-width: 900px;
+      margin: 2rem auto;
+      background: white;
+      padding: 2rem;
+      border-radius: 8px;
+    }
+    label {
+      display: block;
+      margin: 1rem 0 0.5rem;
+    }
+    select, input[type="file"] {
+      padding: 0.5rem;
+      font-size: 1rem;
+    }
+    #preview, #facePreview {
+      margin-top: 1rem;
+      border: 1px solid #ccc;
+      width: 300px;
+      height: 150px;
+      position: relative;
+    }
+    #facePreview {
+      height: 300px;
+    }
+    #facePreview img {
+      max-width: 100%;
+      height: auto;
+      display: block;
+    }
+    #glassesOnFace {
+      position: absolute;
+      width: 160px;
+      opacity: 0.8;
+      pointer-events: none;
+    }
+    button {
+      margin-top: 2rem;
+      padding: 1rem 2rem;
+      background: #0077cc;
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-size: 1.1rem;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <header>Design My Glasses</header>
+
+  <main>
+    <h2>Customize Your Frame</h2>
+
+    <label for="frameSize">Frame Size</label>
+    <select id="frameSize">
+      <option value="small">Small</option>
+      <option value="medium" selected>Medium</option>
+      <option value="large">Large</option>
+    </select>
+
+    <label for="material">Material</label>
+    <select id="material">
+      <option value="plastic" selected>Plastic</option>
+      <option value="metal">Metal</option>
+      <option value="wood">Wood</option>
+    </select>
+
+    <label for="bridgeStyle">Bridge Style</label>
+    <select id="bridgeStyle">
+      <option value="standard" selected>Standard</option>
+      <option value="keyhole">Keyhole</option>
+      <option value="saddle">Saddle</option>
+    </select>
+
+    <label for="templeStyle">Temple Style</label>
+    <select id="templeStyle">
+      <option value="standard" selected>Standard</option>
+      <option value="hinge1">Hinge Style 1</option>
+      <option value="hinge2">Hinge Style 2</option>
+    </select>
+
+    <div id="preview">
+      <img id="frameImage" src="https://via.placeholder.com/300x150?text=Medium+Plastic+Standard+Standard" alt="Frame Preview" />
+    </div>
+
+    <h3>Upload Your Face to Try On</h3>
+    <input type="file" id="faceInput" accept="image/*" />
+
+    <div id="facePreview">
+      <!-- Face and glasses will be rendered here -->
+    </div>
+
+    <button id="orderBtn">Place Order</button>
+  </main>
+
+  <script>
+    const frameSize = document.getElementById('frameSize');
+    const material = document.getElementById('material');
+    const bridgeStyle = document.getElementById('bridgeStyle');
+    const templeStyle = document.getElementById('templeStyle');
+    const frameImage = document.getElementById('frameImage');
+    const faceInput = document.getElementById('faceInput');
+    const facePreview = document.getElementById('facePreview');
+
+    function updateFramePreview() {
+      const size = frameSize.value;
+      const mat = material.value;
+      const bridge = bridgeStyle.value;
+      const temple = templeStyle.value;
+      const src = `https://via.placeholder.com/300x150?text=${size}+${mat}+${bridge}+${temple}`;
+      frameImage.src = src;
+
+      const glassesOverlay = document.getElementById('glassesOnFace');
+      if (glassesOverlay) {
+        glassesOverlay.src = src;
+      }
+    }
+
+    frameSize.addEventListener('change', updateFramePreview);
+    material.addEventListener('change', updateFramePreview);
+    bridgeStyle.addEventListener('change', updateFramePreview);
+    templeStyle.addEventListener('change', updateFramePreview);
+
+    async function setupFaceAPI() {
+      await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
+      await faceapi.nets.faceLandmark68TinyNet.loadFromUri('/models');
+    }
+
+    faceInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async function (ev) {
+        facePreview.innerHTML = '';
+
+        const img = document.createElement('img');
+        img.src = ev.target.result;
+        img.id = 'facePhoto';
+        img.onload = async () => {
+          const detection = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions())
+            .withFaceLandmarks(true);
+
+          if (detection) {
+            const landmarks = detection.landmarks;
+            const leftEye = landmarks.getLeftEye();
+            const rightEye = landmarks.getRightEye();
+
+            const eyeCenterX = (leftEye[0].x + rightEye[3].x) / 2;
+            const eyeCenterY = (leftEye[0].y + rightEye[3].y) / 2;
+
+            const glassesImg = document.createElement('img');
+            glassesImg.src = frameImage.src;
+            glassesImg.id = 'glassesOnFace';
+            glassesImg.style.left = `${eyeCenterX - 80}px`;
+            glassesImg.style.top = `${eyeCenterY - 40}px`;
+            glassesImg.style.position = 'absolute';
+            glassesImg.style.width = '160px';
+            glassesImg.style.opacity = '0.8';
+            glassesImg.style.pointerEvents = 'none';
+
+            facePreview.appendChild(img);
+            facePreview.appendChild(glassesImg);
+          } else {
+            alert('No face detected. Please try a different image.');
+            facePreview.appendChild(img); // fallback
+          }
+        };
+      };
+      reader.readAsDataURL(file);
+    });
+
+    document.getElementById('orderBtn').addEventListener('click', () => {
+      const facePhoto = document.getElementById('facePhoto');
+      const orderData = {
+        frameSize: frameSize.value,
+        material: material.value,
+        bridgeStyle: bridgeStyle.value,
+        templeStyle: templeStyle.value,
+        facePhoto: facePhoto ? facePhoto.src : null
+      };
+
+      fetch('/order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderData)
+      })
+        .then(res => res.json())
+        .then(data => {
+          alert(`Your order has been placed! Order ID: ${data.orderId}`);
+        })
+        .catch(err => {
+          console.error(err);
+          alert('There was a problem placing your order.');
+        });
+    });
+
+    setupFaceAPI();
+    updateFramePreview();
+  </script>
+</body>
+</html>
